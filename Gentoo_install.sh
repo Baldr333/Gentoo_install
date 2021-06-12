@@ -38,20 +38,22 @@ stage3() {
 wget $STAGE3
 tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner ;}
 
-#MAKECONF + setup gentoo repo x=??? lspcu
-make_conf() { # march=native
-nano -w /mnt/gentoo/etc/portage/make.conf # manual interactions
-#echo -e 'MAKEOPTS="-jx -lx"' >> /mnt/gentoo/etc/portage/make.conf
-#echo -e 'PORTAGE_NICENESS="1"' >> /mnt/gentoo/etc/portage/make.conf
-#echo -e 'EMERGE_DEFAULT_OPTS="--autounmask-write --jobs=x --load-average=x with-bdeps y --complete-graph y"' >> /mnt/gentoo/etc/portage/make.conf
-#echo -e 'FEATURES="candy fixlafiles unmerge-orphans parallel-install"' >> /mnt/gentoo/etc/portage/make.conf
-#echo -e 'ACCEPT_KEYWORDS="~amd64"' >> /mnt/gentoo/etc/portage/make.conf
-#echo -e 'ACCEPT_LICENSE="*"' >>  /mnt/gentoo/etc/portage/make.conf
-#echo -e 'USE="-wayland -kde -gnome -consolekit -systemd -pulseaudio alsa elogind dbus X"'
-#echo -e 'INPUT_DEVICES="libinput synaptics"'
+make_conf() {
+echo 'COMMON_FLAGS="-march=native -02 -pipe"' > /mnt/gentoo/etc/portage/make.conf
+echo 'CFLAGS="{COMMON_FLAGS}"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'CXXFLAGS="{COMMON_FLAGS}"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'FCFLAGS="{COMMON_FLAGS}"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'FFLAGS="{COMMON_FLAGS}"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'MAKEOPTS="-jx -lx"' >> /mnt/gentoo/etc/portage/make.conf     ###### x ?
+echo 'PORTAGE_NICENESS="1"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'EMERGE_DEFAULT_OPTS="--autounmask-write --jobs=x --load-average=x with-bdeps y --complete-graph y"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'FEATURES="candy fixlafiles unmerge-orphans parallel-install"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'ACCEPT_KEYWORDS="~amd64"' >> /mnt/gentoo/etc/portage/make.conf
+echo 'ACCEPT_LICENSE="*"' >>  /mnt/gentoo/etc/portage/make.conf
+echo 'USE="-wayland -kde -gnome -qt -consolekit -systemd -pulseaudio alsa elogind dbus X"' >>  /mnt/gentoo/etc/portage/make.conf
+echo 'INPUT_DEVICES="libinput synaptics"' >>  /mnt/gentoo/etc/portage/make.conf
 mkdir -p /mnt/gentoo/etc/portage/repos.conf
-cp /mnt/gentoo/usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf
-}
+cp /mnt/gentoo/usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf ;}
 
 newroot() {
 cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
@@ -80,7 +82,7 @@ source /etc/profile ;}
 kernel_setup() {
 emerge pciutils gentoo-sources
 cd /usr/src/linux
-make menuconfig
+make menuconfig # manual interaction
 make -jx && make modules_install install
 emerge linux-firmware ;}
 
@@ -111,14 +113,18 @@ emerge app-shells/zsh app-shells/gentoo-zsh-completions app-shells/zsh-completio
 useradd -m -G users,wheel,audio,video,usb -s /bin/zsh nic
 passwd nic ;} # manual interaction
 
-ebuild_repo() {
+ebuilds() {
 cd /var/db
 mkdir -p repos/custom/{metadata,profiles}
 chown -R portage:portage repos/custom
 echo "custom" >> profiles/repo_name
 echo -e '"masters=gentoo"\n"auto-sync-false"' >> metadata/layout.conf
 echo -e '[custom]\nlocation = /var/db/repos/custom' >> /etc/portage/repos.conf/custom.conf
-}
+mkdir -p /var/db/repos/custom/app-misc/lf
+chown -R portage:portage app-misc
+cd app-misc/lf/ && wget gpo.zugaina.org/AJAX/Ebuild/53399251 -O lf-9999.ebuild
+repoman manifest && chown portage:portage lf-9999.ebuild
+;}
 
 
 desktop_setup() {
@@ -138,62 +144,56 @@ emerge media-sound/alsa-utils
 echo "x11-misc/xwallpaper jpeg png" >> /etc/portage/package.use/custom
 echo "media-gfx/sxiv gif" >> /etc/portage/package.use/custom
 emerge x11-misc/slop media-gfx/maim media-gfx/sxiv x11-misc/xwallpaper x11-misc/dunst x11-misc/xdg-utils
-emerge dev-vcs/git app-editors/neovim x11-misc/xclip x11-misc/xdotool x11-apps/setxkbmap x11-apps/xmodmap
+emerge dev-vcs/git app-editors/neovim x11-misc/xclip x11-misc/xdotool x11-apps/setxkbmap x11-apps/xmodmap app-eselect/eselect-repository
+eselect repository add librewolf git https://gitlab.com/librewolf-community/browser/gentoo.git
+emaint -r librewolf sync
+echo "app-misc/lf **" >> /etc/portage/package.accept_keywords/custom
+emerge lf
+;}
 
 
-dotfiles_setup() {
-su - nic
-cd ~/
-git init --bare $HOME/.cfg
-alias cfg='/usr/bin/git --git-dir=$HOME/.cfg --work-tree=$HOME'
-cfg config --local status.showUntrackedFiles no
-cd /tmp
-git clone https://github.com/Baldr333/dotfiles.git
-cd dotfiles
-cp .config $HOME/ && cp .local $HOME/
-cp .xprofile $HOME/ && cp .xprofile $HOME/
-
-# Luke ST
-# finish desktop config transmission rss etc...
-# verify cd logic...
-
-
-# TO DO
-#automate manual interaction
-#add lf + eselect librewolf repo
-# htop + patch
+#dotfiles_setup() {
+#su - nic
+#cd ~/
+#git init --bare $HOME/.cfg
+#alias cfg='/usr/bin/git --git-dir=$HOME/.cfg --work-tree=$HOME'
+#cfg config --local status.showUntrackedFiles no
+#cd /tmp
+#git clone https://github.com/Baldr333/dotfiles.git
+#cd dotfiles
+#cp * $HOME
 
 # Install Start
 
-partionning || #error msg
+partionning || echo "error step 1"
 
-mounting || #error msg
+mounting || echo "error step 2"
 
-stage3 ||
+stage3 || echo "error step 3"
 
-make_conf ||
+make_conf || echo "error step 4"
 
-newroot ||
+newroot || echo "error step 5"
 
-portage_setup ||
+portage_setup || echo "error step 6"
 
-locale_gen ||
+locale_gen || echo "error step 7"
 
-kernel_setup ||
+kernel_setup || echo "error step 8"
 
-fstab_setup ||
+fstab_setup || echo "error step 9"
 
-net_setup ||
+net_setup || echo "error step 10"
 
-efi_setup ||
+efi_setup || echo "error step 11"
 
-user_setup ||
+user_setup || echo "error step 12"
 
-ebuild_repo ||
+ebuilds || echo "error step 13"
 
-desktop_setup ||
+desktop_setup || echo "error step 14"
 
-dotfiles_setup ||
+#dotfiles_setup || echo "error step 15"
 
-#exit
-#reboot
+exit
+reboot
