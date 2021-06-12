@@ -1,9 +1,9 @@
 #!/bin/sh
 
-STAGE3=
+STAGE3=https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/20210611T113421Z/hardened/stage3-amd64-hardened-20210611T113421Z.tar.xz
 
 partionning() {
-sed -e 's/\s*\([+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk /dev/sda #` #########
+sed -e 's/\s*\([+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk /dev/sda
 o # Clear the in memory partition table
 g # set GPT
 n # new partition boot
